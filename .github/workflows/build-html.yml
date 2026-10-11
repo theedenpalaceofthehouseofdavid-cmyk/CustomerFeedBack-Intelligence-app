@@ -1,0 +1,18 @@
+name: build-html-app
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.64
+      - name: Compile to one HTML file
+        run: sh build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: feedback_intel_html
+          path: feedback_intel.html
