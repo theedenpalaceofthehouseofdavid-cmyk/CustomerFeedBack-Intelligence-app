@@ -1,0 +1,88 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Customer Feedback Intelligence</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#0b1030;--pn:#141a45;--ink:#f1f5f9;--mu:#94a3b8;--ln:#2b3478;--gd:#fbbf24}
+@media(prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#fbf7ec;--pn:#fff;--ink:#1c2150;--mu:#5a6190;--ln:#e2d9bd}}
+:root[data-theme="light"]{--bg:#fbf7ec;--pn:#fff;--ink:#1c2150;--mu:#5a6190;--ln:#e2d9bd}
+:root[data-theme="dark"]{--bg:#0b1030;--pn:#141a45;--ink:#f1f5f9;--mu:#94a3b8;--ln:#2b3478}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px "Segoe UI",system-ui,Roboto,sans-serif}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:3;display:flex;gap:8px;align-items:center;padding:10px 14px;background:linear-gradient(90deg,#2b1b6e,#0f6e8c,#117a5a,#b5841a);color:#fff}
+header b{flex:1;font:700 18px Georgia,serif}
+header button{background:rgba(255,255,255,.22);color:#fff;border:0;border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit}
+#scr{margin:12px;padding:12px;background:var(--pn);border:1px solid var(--ln);border-radius:12px;overflow-x:auto;font:13px/1.35 "Cascadia Mono",Consolas,"DejaVu Sans Mono",monospace;white-space:pre;min-height:50vh}
+#scr div{min-height:1.35em}
+#dock{position:sticky;bottom:0;background:var(--bg);border-top:1px solid var(--ln);padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px))}
+#ch{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+#ch button{border:0;border-radius:10px;padding:10px 13px;font:700 14px inherit;color:#10143a;cursor:pointer;text-align:left}
+#row{display:flex;gap:8px}#lb{color:var(--mu);font-size:13px;margin-bottom:4px}
+#in{flex:1;min-width:0;background:var(--pn);color:var(--ink);border:1px solid var(--ln);border-radius:10px;padding:11px;font:inherit}
+#go{background:var(--gd);color:#1c1500;border:0;border-radius:10px;padding:0 18px;font-weight:700;cursor:pointer}
+#fl{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:9;padding:16px}
+#fl div{background:var(--pn);border-radius:14px;padding:16px;max-width:560px;width:100%;max-height:80vh;overflow:auto}
+#fl a{display:block;padding:8px 0;color:var(--gd);border-top:1px solid var(--ln);text-decoration:none;word-break:break-all}
+:focus-visible{outline:3px solid #5cc8ff;outline-offset:2px}
+</style></head><body>
+<header><b>✦ Customer Feedback Intelligence</b><input id="px" placeholder="Link proxy (optional)" style="width:150px;margin:0;padding:6px;border-radius:8px;border:0"><button id="fb">Exports</button><button id="tb">Theme</button></header>
+<pre id="scr" aria-live="polite"></pre>
+<div id="dock"><div id="ch"></div><div id="lb"></div><div id="row"><input id="in" autocomplete="off" aria-label="Type here"><button id="go">Send</button></div></div>
+<div id="fl"><div><b>Exported files</b><span id="fx"></span><p><button id="fc">Close</button></p></div></div>
+<script>
+var q=[],waiters=[],pend=null;
+var Module={print:function(){},printErr:function(){},
+ preRun:[function(){FS.mkdir("/data");FS.mount(IDBFS,{},"/data");Module.addRunDependency("idb");FS.syncfs(true,function(){Module.removeRunDependency("idb")})}],
+ fiNextLine:function(){return new Promise(function(r){if(q.length)r(q.shift());else waiters.push(r)})},
+ fiOut:function(t){feed(t);later()},
+ fiDone:function(){feed("\n\x1b[1mSession ended. Reload the page to start again.\x1b[0m\n");later()},
+ fiProxy:function(u){var p=$("#px").value.trim();return p?p+encodeURIComponent(u):u}};
+function later(){if(pend)return;pend=requestAnimationFrame(function(){pend=null;window.scrollTo(0,document.body.scrollHeight);dock();if(/EXPORTED/.test(scr.innerText.slice(-600)))files()})}
+
+const $=s=>document.querySelector(s),scr=$("#scr"),inp=$("#in");
+let pos=0,fg=null,bg=null,bold=false,dim=false,ital=false,cur=null,tail="",busy=false;
+const COL=["#ff7a59","#5cc8ff","#b48cff","#2fd29a","#fbbf24","#7ee8d0","#f472b6","#a3e635","#fb923c","#22d3ee","#e879f9","#facc15"];
+function newLine(){cur=document.createElement("div");scr.appendChild(cur)}
+function put(t){if(!t)return;if(!cur)newLine();const s=document.createElement("span");s.textContent=t;
+ let st="";if(fg)st+="color:"+fg+";";if(bg)st+="background:"+bg+";";if(bold)st+="font-weight:700;";if(dim)st+="opacity:.65;";if(ital)st+="font-style:italic;";s.style.cssText=st;cur.appendChild(s)}
+function feed(txt){const re=/\x1b\[([0-9;?]*)([A-Za-z])|\r|\n|[^\x1b\r\n]+/g;let m;
+ while((m=re.exec(txt))){const t=m[0];
+  if(t=="\n"){newLine();continue}
+  if(t=="\r"){if(cur)cur.textContent="";continue}
+  if(m[2]){const c=m[1].split(";").map(Number);
+   if(m[2]=="J"){scr.textContent="";cur=null;continue}
+   if(m[2]!="m")continue;
+   for(let i=0;i<c.length;i++){const v=c[i];
+    if(v==0||isNaN(v)){fg=bg=null;bold=dim=ital=false}else if(v==1)bold=true;else if(v==2)dim=true;else if(v==3)ital=true;
+    else if((v==38||v==48)&&c[i+1]==2){const col="rgb("+c[i+2]+","+c[i+3]+","+c[i+4]+")";if(v==38)fg=col;else bg=col;i+=4}}
+   continue}
+  put(t)}}
+const strip=s=>s.replace(/\x1b\[[0-9;?]*[A-Za-z]/g,"");
+function dock(){
+ const lines=strip(scr.innerText).split("\n");const last=(lines[lines.length-1]||"").trim();
+ $("#lb").textContent=last;
+ inp.type=/password|passcode|\bpin\b/i.test(last)?"password":"text";
+ const ch=$("#ch");ch.textContent="";
+ const add=(label,val,i)=>{const b=document.createElement("button");b.textContent=label;b.style.background=COL[i%12];b.onclick=()=>send(val,label);ch.appendChild(b)};
+ if(/\[[Yy]\/[Nn]\]/.test(last)){add("Yes","y",3);add("No","n",0);add("Default","",4);return}
+ if(/Press Enter/i.test(last)){add("Continue","",4);return}
+ let i=lines.length-2,found=[];while(i>=0&&i>lines.length-80){const m=lines[i].match(/\[(\d{1,2})\]\s+(\S.*?)(?:\s{2,}|$)/);
+  if(m){found.unshift([m[1],m[2].replace(/[\s│║┃╎]+$/,"")])}else if(found.length&&lines[i].trim()&&!/^[\s║│┃╎]*$/.test(lines[i]))break;i--}
+ found.forEach((f,k)=>add("["+f[0]+"] "+f[1],f[0],k))}
+function pushLine(v){if(waiters.length)waiters.shift()(v);else q.push(v)}
+function send(v,label){const pw=inp.type=="password";feed("\x1b[2m"+(pw?"••••••":(label||v))+"\x1b[0m\n");$("#ch").textContent="";pushLine(v);inp.value="";inp.focus();later()}
+$("#go").onclick=()=>send(inp.value,inp.value);
+inp.onkeydown=e=>{if(e.key=="Enter")send(inp.value,inp.value)};
+try{$("#px").value=localStorage.getItem("fiproxy")||""}catch(e){}
+$("#px").onchange=()=>{try{localStorage.setItem("fiproxy",$("#px").value)}catch(e){}};
+function walk(d,o){FS.readdir(d).forEach(n=>{if(n=="."||n=="..")return;const p=d+"/"+n;FS.isDir(FS.stat(p).mode)?walk(p,o):o.push(p)})}
+function files(){const o=[];if(FS.analyzePath("/data/exports").exists)walk("/data/exports",o);o.sort().reverse();
+ $("#fx").innerHTML="";o.forEach(p=>{const a=document.createElement("a");a.href="#";a.textContent=p.replace("/data/exports/","");
+  a.onclick=e=>{e.preventDefault();const b=new Blob([FS.readFile(p)]);const u=URL.createObjectURL(b);const l=document.createElement("a");l.href=u;l.download=p.split("/").pop();l.click();setTimeout(()=>URL.revokeObjectURL(u),4000)};$("#fx").appendChild(a)});
+ if(!o.length)$("#fx").innerHTML="<p>No files yet.</p>"}
+$("#fb").onclick=()=>{files();$("#fl").style.display="flex"};$("#fc").onclick=()=>$("#fl").style.display="none";
+$("#tb").onclick=()=>{const r=document.documentElement;r.dataset.theme=getComputedStyle(r).getPropertyValue("--bg").trim()=="#0b1030"?"light":"dark"};
+setInterval(()=>{try{FS.syncfs(false,function(){})}catch(e){}},4000);
+addEventListener("pagehide",()=>{try{FS.syncfs(false,function(){})}catch(e){}});
+</script>
+{{{ SCRIPT }}}
+</body></html>
